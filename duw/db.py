@@ -10,7 +10,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 def sql_url_from_config():
-    return "sqlite://"
+    return "sqlite:///duw.sqlite"
 
 def create_engine():
     return sqlalchemy.create_engine(sql_url_from_config(), pool_recycle=600)

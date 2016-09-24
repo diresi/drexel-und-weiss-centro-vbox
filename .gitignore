@@ -4,3 +4,4 @@
 *.orig
 venv/
 __pycache__/
+*.sqlite
