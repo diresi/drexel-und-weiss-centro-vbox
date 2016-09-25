@@ -45,7 +45,8 @@ class RegisterValue(Base):
     id = Column(Integer, primary_key=True)
 
     dt = Column(DateTime, default=datetime.datetime.utcnow)
-    register = Column(Integer, index=True)
-    value = Column(Integer, index=True)
+    dev = Column(Integer, index=True)
+    reg = Column(Integer, index=True)
+    val = Column(Integer)
 
 Base.metadata.create_all(engine)
