@@ -42,8 +42,11 @@ class Bus(object):
         # this reads a line terminated with \n. pretty much the same as
         # serial.threaded.LineReader.
         b = bytearray()
-        while b[-1] != xNL:
-            b.extend(self._port.read())
+        while True:
+            # skip zero bytes
+            b.extend(filter(None, self._port.read()))
+            if b and b[-1] == xNL:
+                break
         return b.decode().strip().split()
 
     def watch(self, handler):
