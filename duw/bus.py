@@ -15,6 +15,7 @@
 #   <D&W Device ID><Space><RegisterID><Space><Value><CR><LF>
 
 import serial
+from threading import Event
 import logging
 slog = logging.getLogger(__name__)
 
@@ -26,6 +27,13 @@ class Bus(object):
         if tty is None:
             tty = "/dev/ttyUSB0"
         self._port = serial.Serial(tty, 115200, timeout=5)
+        self._terminate = Event()
+
+    def terminate(self):
+        self._terminate.set()
+
+    def should_terminate(self):
+        return self._terminate.is_set()
 
     def _send(self, s):
         self._port.write((s+"\r\n").encode("ascii"))
@@ -42,15 +50,31 @@ class Bus(object):
         # this reads a line terminated with \n. pretty much the same as
         # serial.threaded.LineReader.
         b = bytearray()
-        while True:
+        while not self.should_terminate():
             # skip zero bytes
             b.extend(filter(None, self._port.read()))
             if b and b[-1] == xNL:
                 break
-        return b.decode().strip().split()
-
-    def watch(self, handler):
-        parts = self._read_line()
+        parts = b.decode().strip().split()
         slog.debug("Bus read: {!r}".format(parts))
-        parts = [int(part) for part in parts]
-        handler(*parts)
+        return parts
+
+class BusListener(Bus):
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self._listeners = []
+
+    def add_listener(self, l):
+        if l not in self._listeners:
+            self._listeners.append(l)
+
+    def _dispatch(self, *parts):
+        if not self.should_terminate():
+            for l in self._listeners:
+                l(*parts)
+
+    def listen(self):
+        while not self.should_terminate():
+            parts = self._read_line()
+            parts = [int(part) for part in parts]
+            self._dispatch(*parts)

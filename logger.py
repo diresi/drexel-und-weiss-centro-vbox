@@ -9,7 +9,6 @@ def archive(dev, reg, val=-1):
     with DUW.session_scope() as S:
         S.add(DUW.RegisterValue(dev=dev, reg=reg, val=val))
 
-while True:
-    bus = DUW.Bus()
-    while True:
-        bus.watch(archive)
+listener = DUW.BusListener()
+listener.add_listener(archive)
+listener.listen()
