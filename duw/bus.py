@@ -12,9 +12,9 @@
 # Read (ASCII plain text):
 #   <D&W Device ID><Space><RegisterID+1><CR><LF>
 # Response (ASCII plain text):
-#   <D&W Device ID><Space><RegisterID><Space><Value><CR><LF>
+#   <D&W Device ID><Space><RegisterID+1><Space><Value><CR><LF>
 
-from threading import Event
+from threading import Event, Lock
 import logging
 slog = logging.getLogger(__name__)
 import warnings
@@ -28,6 +28,7 @@ class Bus(object):
     def __init__(self, tty=None):
         if tty is None:
             tty = "/dev/ttyUSB0"
+        self._lock = Lock()
         try:
             self._port = serial.Serial(tty, 115200, timeout=5)
         except Exception as e:
@@ -45,11 +46,14 @@ class Bus(object):
         if not self._port:
             warnings.warn("ignoring _send request, no serial device available")
             return
-        self._port.write((s+"\r\n").encode("ascii"))
+        with self._lock:
+            self._port.write((s+"\r\n").encode("ascii"))
 
     def read_request(self, dev, reg):
         #self.port.reset_output_buffer()
-        self._send("{dev:d} {reg:d}".format(dev=dev, reg=reg+1))
+        req = "{dev:d} {reg:d}".format(dev=dev, reg=reg+1)
+        slog.debug("Bus write: {!r}".format(req))
+        self._send(req)
 
     def write_request(self, dev, reg, val):
         #self.port.reset_output_buffer()
@@ -86,4 +90,10 @@ class BusListener(Bus):
         while not self.should_terminate():
             parts = self._read_line()
             parts = [int(part) for part in parts]
+
+            if len(parts) == 3 and parts[1] % 2:
+                # response to explicit read request (uses reg+1, device responds
+                # with this reg+1), we're normalizing the register value
+                parts[1] -= 1
+
             self._dispatch(*parts)

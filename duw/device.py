@@ -5,7 +5,17 @@ from collections import defaultdict
 
 from . import scoped_session, RegisterValue
 
+utcnow = datetime.datetime.utcnow
 DEV_ID_REG = 5000
+
+# kann mir jemand mit dem d&w excel tool evtl. sagen was das register:5344
+# bedeutet? dieses taucht in der modbusdoku nirgends auf wird aber alle 10min mit
+# dem Wert:130 rausgeschrieben. Ich denke es wird irgendein status sein??
+#
+# das ist die E_CENTRO_ID (legt Zugehörigkeit von der vbox zum centro fest). Du
+# hast zwar weder eine vbox noch eine centro (vermute ich), aber die Platinen
+# sind überall identisch. Das ist eine Art regelmäßiges "Announcement" (oder
+# nenne es "Ping") hat vermutlich für dich keine Bedeutung.
 
 class BaseHandler(object):
     def __init__(self, bus=None, active=True):
@@ -46,8 +56,14 @@ class DeviceCache(BaseHandler):
 
     def inject(self, dev, reg, val=-1):
         cache = self.devices[dev]
-        cache[reg] = (val, datetime.datetime.utcnow())
-        if not cache.get(DEV_ID_REG, None) and self.bus:
+        cache[reg] = (val, utcnow())
+
+        # actively poll some values of interest
+        v = cache.get(DEV_ID_REG, None)
+        if not v or (v[0] is None and (utcnow() - v[1]) > datetime.timedelta(seconds=10)):
+            # make sure we're not notorious 'bout this request
+            cache[DEV_ID_REG] = (None, utcnow())
+
             # trigger a read request for this device type
             # we can't be sure that this request is actually heard, but
             # eventually it will cause the device to report its device type
