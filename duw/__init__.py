@@ -7,9 +7,11 @@ def default_logging():
     import logging
     logging.basicConfig(filename="duw.log", style="{", level=logging.DEBUG)
 
-def interactive_setup():
+def interactive_setup(start=True):
     default_logging()
     global logger
     logger = Logger()
-    logger.start()
+    logger.replay()
+    if start:
+        logger.start()
     return logger
