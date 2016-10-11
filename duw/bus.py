@@ -14,10 +14,12 @@
 # Response (ASCII plain text):
 #   <D&W Device ID><Space><RegisterID><Space><Value><CR><LF>
 
-import serial
 from threading import Event
 import logging
 slog = logging.getLogger(__name__)
+import warnings
+
+import serial
 
 xCR = "\r".encode()[0]
 xNL = "\n".encode()[0]
@@ -26,7 +28,11 @@ class Bus(object):
     def __init__(self, tty=None):
         if tty is None:
             tty = "/dev/ttyUSB0"
-        self._port = serial.Serial(tty, 115200, timeout=5)
+        try:
+            self._port = serial.Serial(tty, 115200, timeout=5)
+        except Exception as e:
+            self._port = None
+            slog.warning("failed to open serial device: {}".format(tty))
         self._terminate = Event()
 
     def terminate(self):
@@ -36,6 +42,9 @@ class Bus(object):
         return self._terminate.is_set()
 
     def _send(self, s):
+        if not self._port:
+            warnings.warn("ignoring _send request, no serial device available")
+            return
         self._port.write((s+"\r\n").encode("ascii"))
 
     def read_request(self, dev, reg):
