@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 
-from . import session_scope, RegisterValue
+from . import scoped_session, RegisterValue
 
 DEV_ID_REG = 5000
 
@@ -34,5 +34,5 @@ class DeviceArchive(BaseHandler):
     def inject(self, dev, reg, val=-1):
         # log a bus transaction, val may not be set for read requests (when reg is
         # an odd number)
-        with session_scope() as S:
+        with scoped_session() as S:
             S.add(RegisterValue(dev=dev, reg=reg, val=val))

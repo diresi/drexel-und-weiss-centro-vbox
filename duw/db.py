@@ -1,7 +1,7 @@
 import datetime
 from contextlib import contextmanager
 import sqlalchemy
-import sqlalchemy.orm
+from sqlalchemy.orm import scoped_session as _scoped_session, sessionmaker
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 #from sqlalchemy.orm import relationship
 #from sqlalchemy.sql import func
@@ -16,18 +16,16 @@ def create_engine():
     return sqlalchemy.create_engine(sql_url_from_config(), pool_recycle=600)
 
 engine = create_engine()
-Session = sqlalchemy.orm.sessionmaker(bind=engine)
+_session_maker = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# From: http://docs.sqlalchemy.org/en/latest/orm/session_basics.html
-# I wonder why this is not built in ...
 @contextmanager
-def session_scope(expunge=False):
+def scoped_session(expunge=False):
     """Provide a transactional scope around a series of operations.
 
     If `expunge` is True, the session isn't committed but only closed, which
     expunges (detaches) all objects from the session.
     """
-    session = Session()
+    session = _scoped_session(_session_maker)
     try:
         yield session
         if not expunge:
@@ -38,6 +36,8 @@ def session_scope(expunge=False):
     finally:
         session.close()
 
+default_session = _scoped_session(_session_maker)
+Base.query = default_session.query_property()
 
 class RegisterValue(Base):
     __tablename__ = "registers"
