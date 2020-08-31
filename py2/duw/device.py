@@ -42,6 +42,7 @@ REG_DEV_TYPE = 5000
 # 1288 ->
 # 1306 -> Anforderung: Zuluft Heizen
 # 5000 -> device type
+# 5002 -> Betriebsart (0,1,2,3,4,5)
 # 5212 -> Uhrzeit [HHMMSS]
 # 5344 -> E_CENTRO_ID (see above)
 # 7500 -> Summenstörung 2
