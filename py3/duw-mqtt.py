@@ -1,4 +1,5 @@
 import asyncio
+import csv
 import json
 import logging
 
@@ -12,10 +13,12 @@ SERBAUD = 115200
 
 MQTT_BROKER = "192.168.1.11"
 MQTT_TOPIC_TELE = "tele/aerosmart/bus"
+MQTT_TOPIC_TELE_VALUE = "tele/aerosmart/{device}/{name}"
 MQTT_TOPIC_CMND = "cmnd/aerosmart/bus"
 
 # ranges of device addresses we're interested in
-DEVICES = (range(9000, 10000),)
+DEVICE_TYPES = {}
+DEVICES = {}
 
 
 async def read_bus(ser: AioSerial, q: asyncio.Queue):
@@ -29,7 +32,7 @@ async def read_bus(ser: AioSerial, q: asyncio.Queue):
         await q.put(data)
 
 
-async def publish_data(mq: MqttClient, q: asyncio.Queue, topic=MQTT_TOPIC_TELE):
+async def publish_data(mq: MqttClient, q: asyncio.Queue):
     while True:
         data = await q.get()
 
@@ -41,9 +44,16 @@ async def publish_data(mq: MqttClient, q: asyncio.Queue, topic=MQTT_TOPIC_TELE):
         if not msg:
             continue
 
-        _log.debug(f"MQTT publish [{topic}]: {msg}")
-        msg = json.dumps(msg)
-        await mq.publish(topic, msg, qos=1)
+        await mq_publish(mq, MQTT_TOPIC_TELE, msg)
+        if "name" in msg:
+            topic = MQTT_TOPIC_TELE_VALUE.format(**msg)
+            await mq_publish(mq, topic, msg["value"])
+
+
+async def mq_publish(mq, topic, msg):
+    _log.debug(f"MQTT publish [{topic}]: {msg}")
+    msg = json.dumps(msg)
+    await mq.publish(topic, msg, qos=1)
 
 
 def parse_bus_msg(data):
@@ -72,10 +82,8 @@ def process_bus_msg(msg):
     if not dev:
         return msg
 
-    for addrs in DEVICES:
-        if dev in addrs:
-            break
-    else:
+    dev = DEVICES.get(dev)
+    if dev is None:
         return None
 
     reg = msg.get("register")
@@ -83,14 +91,26 @@ def process_bus_msg(msg):
         # this is the response to a read-request (has the LSB set as flag)
         # just drop the flag
         msg["_register"] = reg
-        msg["register"] = reg - 1
+        reg = reg - 1
+        msg["register"] = reg
         msg["hint"] = "response to read request"
 
-    # FIXME: implement value correction based on the register specification
-    # (see
-    # https://github.com/diresi/drexel-und-weiss/blob/master/900.6667_00_TI_Modbus_Parameter_V4.01_DE.pdf)
+    val = msg.get("value")
+    if val is None:
+        return msg
 
+    dev.cache[reg] = val
+
+    spec = dev.regs.get(reg)
+    if spec:
+        msg["_value"] = val
+        msg["value"] = compute_register_value(spec, val)
+        msg["name"] = spec.name
     return msg
+
+
+def compute_register_value(spec, val):
+    return val / spec.divisor / (10 ** spec.comma)
 
 
 async def mqtt_listen(mq: MqttClient, ser: AioSerial, topic=MQTT_TOPIC_CMND):
@@ -114,10 +134,14 @@ async def mqtt_listen(mq: MqttClient, ser: AioSerial, topic=MQTT_TOPIC_CMND):
             if not cmnd:
                 continue
 
-            cmnd = (cmnd + "\r\n").encode("ascii")
-            _log.debug(f"Bus write {cmnd}")
+            await write_cmnd(ser, cmnd)
 
-            await ser.write_async(cmnd)
+
+async def write_cmnd(ser, cmnd):
+    cmnd = (cmnd + "\r\n").encode("ascii")
+    _log.debug(f"Bus write {cmnd}")
+
+    await ser.write_async(cmnd)
 
 
 def parse_mqtt_msg(topic, msg):
@@ -137,9 +161,7 @@ def process_mqtt_msg(topic, msg):
     val = msg.get("value")
     if val is None:
         # this is a read request, it needs to have the LSB set
-        if not reg % 2:
-            reg = reg + 1
-        cmnd = "{dev:d} {reg:d}".format(dev=dev, reg=reg)
+        cmnd = read_reg_cmnd(dev, reg)
 
     else:
         # this is a write request
@@ -147,7 +169,90 @@ def process_mqtt_msg(topic, msg):
     return cmnd
 
 
+def load_device(fn):
+    lines = open(fn).readlines()
+    dialect = csv.Sniffer().sniff(lines[0])
+    rows = csv.reader(lines, dialect)
+    regs = {}
+    for row in rows:
+        try:
+            reg = Register(
+                int(row[0]),
+                row[1],
+                int(row[2]),
+                int(row[3]),
+                int(row[4]),
+                int(row[5]),
+                row[6],
+                row[7],
+            )
+            regs[reg.addr] = reg
+        except ValueError:
+            _log.error(f"failed to parse row {row}")
+    return regs
+
+
+class Register:
+    def __init__(self, addr, name, vmin, vmax, divisor, comma, access, pcb):
+        self.addr = addr
+        # we're using the name as mqtt topic, we don't wanna have slashes there
+        self.name = name.replace("/", "-")
+        self.vmin = vmin
+        self.vmax = vmax
+        self.divisor = divisor
+        self.comma = comma
+        self.access = access
+        self.pcb = pcb
+
+
+class Device:
+    def __init__(self, addr, type_=None):
+        self.addr = addr
+        self.cache = {}
+        self.regs = {}
+        if type_:
+            self.cache[5000] = type_
+            self.regs = DEVICE_TYPES[type_]
+
+    def type(self):
+        return self.cache.get(5000)
+
+
+def read_reg_cmnd(dev, reg):
+    if not reg % 2:
+        reg = reg + 1
+    return "{dev:d} {reg:d}".format(dev=dev, reg=reg)
+
+
+async def poll_devices(ser: AioSerial):
+    while True:
+        # for addr, dev in DEVICES.items():
+        #     if dev.type() is None:
+        #         await write_cmnd(read_reg_cmnd(dev, 5000))
+
+        # poll some temperatures
+        await write_cmnd(ser, read_reg_cmnd(9130, 200))
+        await write_cmnd(ser, read_reg_cmnd(9130, 202))
+        await write_cmnd(ser, read_reg_cmnd(9130, 250))
+
+        await asyncio.sleep(60)
+
+
 async def main():
+    # map device type (read from register 5000) -> register description
+    # dev type 12 -> vbox 120
+    DEVICE_TYPES[12] = load_device("vbox120.csv")
+    # dev type 16 -> centro
+    DEVICE_TYPES[16] = load_device("centro.csv")
+
+    # pre-configure well-known devices
+    for dev in (
+        Device(9120, 16),
+        Device(9130, 16),
+        Device(9150, 12),
+    ):
+        DEVICES[dev.addr] = dev
+
     tasks = set()
 
     async with MqttClient(MQTT_BROKER) as mq:
@@ -157,6 +262,7 @@ async def main():
 
         ser = AioSerial(port=SERPORT, baudrate=SERBAUD)
         tasks.add(asyncio.create_task(read_bus(ser, q)))
+        tasks.add(asyncio.create_task(poll_devices(ser)))
 
         tasks.add(asyncio.create_task(mqtt_listen(mq, ser)))
 

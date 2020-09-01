@@ -1,0 +1,56 @@
+<Register>;<Description>;<min>;<max>;<divisor>;<comma>;<access>;<pcb>
+5328;Absenkung der Lüfterstufe 1;30;70;1;0;R/W;LU
+1066;Aktive Lüfterstufe;0;4;1;0;R;LU
+228;Anforderung: LST3_EXT;0;1;1;0;R;LU
+1032;Anforderung: Raum-Heizstufe 1;0;1;1;0;R;LU
+1034;Anforderung: Raum-Heizstufe 2;0;1;1;0;R;LU
+5002;Betriebsart;0;5;1;0;R/W;LU
+902;Betriebsstunden: Abluftventilator;0;600000000;60;0;R;LU
+912;Betriebsstunden: Heizstufe 1;0;600000000;60;0;R;LU
+914;Betriebsstunden: Heizstufe 2;0;600000000;60;0;R;LU
+962;Betriebsstunden: Lüfterstufe 0;0;600000000;60;0;R;LU
+904;Betriebsstunden: Lüfterstufe 1;0;600000000;60;0;R;LU
+906;Betriebsstunden: Lüfterstufe 2;0;600000000;60;0;R;LU
+908;Betriebsstunden: Lüfterstufe 3;0;600000000;60;0;R;LU
+944;Betriebsstunden: Reduzierte Lüfterstufe;0;600000000;60;0;R;LU
+900;Betriebsstunden: Zuluftventilator;0;600000000;60;0;R;LU
+1228;Blendenstellung Abluft;0;100;1;0;R;LU
+1226;Blendenstellung Zuluft;0;100;1;0;R;LU
+838;Brandmeldealarm;0;1;1;0;R;LU
+5068;Brandmeldeanlage vorhanden?;0;1;1;0;R;LU
+230;CO2;100;1950;1;0;R;LU
+1048;CO2-Messung;0;1;1;0;R/W;LU
+5054;CO2-Sensor vorhanden?;0;1;1;0;R;LU
+5210;Datum;0;99999999;1;0;R/W;LU
+1232;Druckdifferenz Abluft;0;5000;1;1;R;LU
+1230;Druckdifferenz Zuluft;0;5000;1;1;R;LU
+5330;Erhöhung der Lüfterstufe 3;30;100;1;0;R/W;LU
+5000;Gerätetyp;1;91;1;0;R;LU
+946;Gesamt beförderte Kubikmeter;0;600000000;1;0;R;LU
+1240;Ist-Volumenstrom Abluft;0;500;1;0;R;LU
+1238;Ist-Volumenstrom Zuluft;0;500;1;0;R;LU
+238;Kontakt: Brandmeldealarm;0;1;1;0;R;LU
+1278;Luftstrom Abluft unterbrochen;0;1;1;0;R;LU
+1276;Luftstrom Zuluft unterbrochen;0;1;1;0;R;LU
+5168;Pelletofen vorhanden?;0;1;1;0;R;LU
+5282;Pelletofen: Anlaufverzögerung;1;60;1;0;R;LU
+5284;Pelletofen: Mindestlaufzeit;1;60;1;0;R;LU
+200;Raum;-28000;100000;100;1;R/W;LU
+5016;Raum-Soll;14000;26000;100;1;R/W;LU
+252;Relaiskontakt: EXT (LU);0;1;1;0;R;LU
+1084;Soll-Volumenstrom Abluft;0;500;1;0;R;LU
+5060;Soll-Volumenstrom Lüfterstufe 2;40;300;1;0;R/W;LU
+1082;Soll-Volumenstrom Zuluft;0;500;1;0;R;LU
+832;Störung: CO2-Sensor;0;1;1;0;R;LU
+854;Störung: Druckverlust Abluft zu groß;0;1;1;0;R;LU
+852;Störung: Druckverlust Zuluft zu groß;0;1;1;0;R;LU
+856;Störung: Teilnehmer nicht erreichbar!;0;1;1;0;R;LU
+804;Störung: Temperaturfühler Raum;0;1;1;0;R;LU
+840;Störung: Wert nicht zulässig;0;3;1;0;R;LU
+800;Summenstörung;0;2147483647;1;0;R;LU
+7500;Summenstörung 2;0;2147483647;1;0;R;LU
+1174;Tag;1;7;1;0;R;LU
+5212;Uhrzeit;0;235959;1;0;R/W;LU
+1294;Vereisungsschutz;0;1;1;0;R;LU
+5026;Volumenstrombalance Zuluft - Abluft;-10;30;1;0;R/W;LU
+5038;Zeitspanne Funktion PARTY;3600;14400;60;0;R/W;LU
