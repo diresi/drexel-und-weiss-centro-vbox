@@ -235,7 +235,7 @@ async def poll_devices(ser: AioSerial):
         await write_cmnd(ser, read_reg_cmnd(9130, 202))
         await write_cmnd(ser, read_reg_cmnd(9130, 250))
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(60 * 10)
 
 
 async def main():
