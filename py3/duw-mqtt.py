@@ -113,7 +113,7 @@ def compute_register_value(spec, val):
     return val / spec.divisor / (10 ** spec.comma)
 
 
-async def mqtt_listen(mq: MqttClient, ser: AioSerial, topic=MQTT_TOPIC_CMND):
+async def mqtt_listen(mq: MqttClient, q: asyncio.Queue, topic=MQTT_TOPIC_CMND):
     await mq.subscribe(topic)
 
     async with mq.filtered_messages(topic) as messages:
@@ -134,7 +134,13 @@ async def mqtt_listen(mq: MqttClient, ser: AioSerial, topic=MQTT_TOPIC_CMND):
             if not cmnd:
                 continue
 
-            await write_cmnd(ser, cmnd)
+            await q.put(cmnd)
+
+
+async def write_to_ser(ser: AioSerial, q: asyncio.Queue):
+    while True:
+        cmnd = await q.get()
+        await write_cmnd(ser, cmnd)
 
 
 async def write_cmnd(ser, cmnd):
@@ -224,16 +230,20 @@ def read_reg_cmnd(dev, reg):
     return "{dev:d} {reg:d}".format(dev=dev, reg=reg)
 
 
-async def poll_devices(ser: AioSerial):
+async def poll_devices(q: asyncio.Queue):
+    # poll some temperatures
+    cmnds = [
+        read_reg_cmnd(9130, 200),
+        read_reg_cmnd(9130, 202),
+        read_reg_cmnd(9130, 250),
+    ]
     while True:
         # for addr, dev in DEVICES.items():
         #     if dev.type() is None:
         #         await write_cmnd(read_reg_cmnd(dev, 5000))
 
-        # poll some temperatures
-        await write_cmnd(ser, read_reg_cmnd(9130, 200))
-        await write_cmnd(ser, read_reg_cmnd(9130, 202))
-        await write_cmnd(ser, read_reg_cmnd(9130, 250))
+        for cmnd in cmnds:
+            await q.put(cmnd)
 
         await asyncio.sleep(60 * 10)
 
@@ -257,14 +267,16 @@ async def main():
 
     async with MqttClient(MQTT_BROKER) as mq:
 
-        q = asyncio.Queue()
-        tasks.add(asyncio.create_task(publish_data(mq, q)))
+        qin = asyncio.Queue()
+        tasks.add(asyncio.create_task(publish_data(mq, qin)))
 
         ser = AioSerial(port=SERPORT, baudrate=SERBAUD)
-        tasks.add(asyncio.create_task(read_bus(ser, q)))
-        tasks.add(asyncio.create_task(poll_devices(ser)))
+        tasks.add(asyncio.create_task(read_bus(ser, qin)))
 
-        tasks.add(asyncio.create_task(mqtt_listen(mq, ser)))
+        qout = asyncio.Queue()
+        tasks.add(asyncio.create_task(write_to_ser(ser, qout)))
+        tasks.add(asyncio.create_task(poll_devices(qout)))
+        tasks.add(asyncio.create_task(mqtt_listen(mq, qout)))
 
         await asyncio.gather(*tasks)
 
