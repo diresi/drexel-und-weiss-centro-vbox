@@ -148,6 +148,7 @@ async def write_cmnd(ser, cmnd):
     _log.debug(f"Bus write {cmnd}")
 
     await ser.write_async(cmnd)
+    await ser.write_async(cmnd)
 
 
 def parse_mqtt_msg(topic, msg):
