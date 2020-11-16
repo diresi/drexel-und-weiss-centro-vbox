@@ -147,8 +147,9 @@ async def write_cmnd(ser, cmnd):
     cmnd = (cmnd + "\r\n").encode("ascii")
     _log.debug(f"Bus write {cmnd}")
 
-    await ser.write_async(cmnd)
-    await ser.write_async(cmnd)
+    # For whatever reason write_async() doesn't work reliably
+    # await ser.write_async(cmnd)
+    ser.write(cmnd)
 
 
 def parse_mqtt_msg(topic, msg):
