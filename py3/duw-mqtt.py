@@ -2,14 +2,17 @@ import asyncio
 import csv
 import json
 import logging
+import random
+import time
 
 from aioserial import AioSerial
 from asyncio_mqtt import Client as MqttClient, MqttError
 
 _log = logging.getLogger(__name__)
 
-SERPORT = "/dev/ttyUSB0"
-SERBAUD = 115200
+SER_PORT = "/dev/ttyUSB0"
+SER_BAUD = 115200
+SER_TMO = 1
 
 MQTT_BROKER = "192.168.1.11"
 MQTT_TOPIC_TELE = "tele/aerosmart/bus"
@@ -21,6 +24,26 @@ DEVICE_TYPES = {}
 DEVICES = {}
 
 
+class _Feedback:
+    def __init__(self):
+        self._what = None
+        self._seen = False
+
+    def wait_for(self, what):
+        self._what = what
+        self._seen = False
+
+    def put(self, what):
+        if what == self._what:
+            self._seen = True
+
+    def seen(self):
+        return self._seen
+
+
+_loopback = _Feedback()
+
+
 async def read_bus(ser: AioSerial, q: asyncio.Queue):
     while True:
         data = await ser.readline_async()
@@ -29,6 +52,7 @@ async def read_bus(ser: AioSerial, q: asyncio.Queue):
         data = data.strip().decode()
         if not data:
             continue
+        _loopback.put(data)
         await q.put(data)
 
 
@@ -143,13 +167,26 @@ async def write_to_ser(ser: AioSerial, q: asyncio.Queue):
         await write_cmnd(ser, cmnd)
 
 
-async def write_cmnd(ser, cmnd):
-    cmnd = (cmnd + "\r\n").encode("ascii")
+async def write_cmnd(ser, cmnd, tmo=SER_TMO):
     _log.debug(f"Bus write {cmnd}")
+    enc = (cmnd + "\r\n").encode("ascii")
 
-    # For whatever reason write_async() doesn't work reliably
-    # await ser.write_async(cmnd)
-    ser.write(cmnd)
+    _loopback.wait_for(cmnd)
+    tst = time.time() + tmo
+    i = 0
+    while True:
+        i += 1
+        await ser.write_async(enc)
+        if _loopback.seen():
+            break
+
+        if time.time() > tst:
+            _log.warning(
+                f"Bus write failed after {i} attempts, timeout reached: {tmo}s"
+            )
+            break
+
+        await asyncio.sleep(0.1 * random.random())
 
 
 def parse_mqtt_msg(topic, msg):
@@ -272,7 +309,7 @@ async def main():
         qin = asyncio.Queue()
         tasks.add(asyncio.create_task(publish_data(mq, qin)))
 
-        ser = AioSerial(port=SERPORT, baudrate=SERBAUD)
+        ser = AioSerial(port=SER_PORT, baudrate=SER_BAUD)
         tasks.add(asyncio.create_task(read_bus(ser, qin)))
 
         qout = asyncio.Queue()
