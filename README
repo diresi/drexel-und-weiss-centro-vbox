@@ -1,5 +1,8 @@
 Some Python code to interface with Drexel und Weiss Aerosmart systems.
 
-Those come with their own serial bus implementation (on all layers) but sport a rather simple ModBus-like interface.
+Those come with their own serial bus implementation (on all layers) but sport a
+rather simple ModBus-like interface.
 
-The py3 stuff bridges to MQTT.
+The duw stuff bridges to MQTT.
+
+Runs on a Raspberry Pi Zero W.
