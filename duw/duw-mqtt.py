@@ -14,7 +14,7 @@ SER_PORT = "/dev/ttyUSB0"
 SER_BAUD = 115200
 SER_TMO = 1
 
-MQTT_BROKER = "192.168.1.11"
+MQTT_BROKER = "192.168.1.16"
 MQTT_TOPIC_TELE = "tele/aerosmart/bus"
 MQTT_TOPIC_TELE_VALUE = "tele/aerosmart/{device}/{name}"
 MQTT_TOPIC_CMND = "cmnd/aerosmart/bus"
@@ -314,7 +314,7 @@ async def main():
 
         qout = asyncio.Queue()
         tasks.add(asyncio.create_task(write_to_ser(ser, qout)))
-        tasks.add(asyncio.create_task(poll_devices(qout)))
+        #tasks.add(asyncio.create_task(poll_devices(qout)))
         tasks.add(asyncio.create_task(mqtt_listen(mq, qout)))
 
         await asyncio.gather(*tasks)
